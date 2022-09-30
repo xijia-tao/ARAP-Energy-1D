@@ -181,6 +181,26 @@ void init() {
     glPointSize(10.0f);
 }
 
+float get_energy(vector<Spring> springs, vector<Vector3d> positions) {
+    float energy = 0, len, t;
+    int i1, i2;
+    Vector3d F;
+    for (unsigned int i = 0; i < springs.size(); i++) {
+        i1 = springs[i].getFirst();
+        i2 = springs[i].getSecond();
+        cout << positions[i1] << endl;
+        cout << positions[i2] << endl;
+        
+        len = springs[i].getLength();
+        F = compute_F(positions[i1], positions[i2], len);
+		t = compute_trace(F); 
+        cout << F << endl;
+        cout << t << endl;
+        energy += compute_energy(t);
+    }
+    return energy;
+}
+
 void update() {
     Vector3d v1, v2, v3;
     Particle *p1, *p2;
@@ -201,24 +221,31 @@ void update() {
     Eigen::ConjugateGradient<Eigen::MatrixXd, Eigen::Lower|Eigen::Upper> cg;
 
     // init_pos(positionsp, particles);
-    for (unsigned int i = 0; i < particles.size(); i++)
+    for (unsigned int i = 0; i < particles.size(); i++) {
         positionsp.push_back(particles[i].getPosition());
+        positions.push_back(particles[i].getPosition());
+    }
+        
     while(1) {
         get_global(springs, particles, hessian, grad, E_prev);
         if (grad.norm() < eps) break;
-        // if (abs(lenp - P.norm()) < eps) cnt += 1;
-        // if (cnt > 5) break;
+        // cout << hessian << endl;
+        // cout << grad << endl;
+        // cin.get();
+        if (abs(lenp - grad.norm()) < eps) cnt += 1;
+        if (cnt > 5) break;
         cg.compute(hessian);
         VectorXd p = -cg.solve(grad);
         alpha = 1;
         do {
             update_pos(positionsp, positions, p, alpha);
             alpha = alpha / 2;
-            energy = get_energy(springs, particles);
+            energy = get_energy(springs, positions);
         } while (energy > E_prev);
         positionsp = positions;
         E_prev = energy;
-        // lenp = P.norm();
+        // cout << energy << endl;
+        lenp = grad.norm();
     }
     set_pos(positions, particles);
     if(debug) {

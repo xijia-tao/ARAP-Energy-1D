@@ -92,33 +92,31 @@ void get_global(vector<Spring> springs, vector<Particle> particles, MatrixXd &he
 		t = compute_trace(F); 
         compute_grad_hessian(P, H, t, F);
         for (int j = 0; j < 3; j++) {
-            grad[3 * i1 + j] += P[j]; // not sure if this is the correct way of calc a global gradient
+            grad[3 * i1 + j] -= P[j]; // not sure if this is the correct way of calc a global gradient
             grad[3 * i2 + j] += P[j]; // but the only meaningful way that I can think of
         }
         hessian.block(3 * i1, 3 * i2, 3, 3) = H; // a 3nx3n matrix
+        hessian.block(3 * i2, 3 * i1, 3, 3) = H; 
         energy += compute_energy(t);
     }
 }
 
 // get the total energy
-float get_energy(vector<Spring> springs, vector<Particle> particles) {
-    float energy = 0, len, t;
-    int i1, i2;
-    Particle *p1, *p2;
-    Vector3d F;
-    for (unsigned int i = 0; i < springs.size(); i++) {
-        i1 = springs[i].getFirst();
-        i2 = springs[i].getSecond();
-        p1 = &particles[i1];
-	    p2 = &particles[i2];
+// float get_energy(vector<Spring> springs, vector<Vector3d> positions) {
+//     float energy = 0, len, t;
+//     int i1, i2;
+//     Vector3d F;
+//     for (unsigned int i = 0; i < springs.size(); i++) {
+//         i1 = springs[i].getFirst();
+//         i2 = springs[i].getSecond();
 
-        len = springs[i].getLength();
-        F = compute_F(p1->getPosition(), p2->getPosition(), len);
-		t = compute_trace(F); 
-        energy += compute_energy(t);
-    }
-    return energy;
-}
+//         len = springs[i].getLength();
+//         F = compute_F(positions[i1], positions[i2], len);
+// 		t = compute_trace(F); 
+//         energy += compute_energy(t);
+//     }
+//     return energy;
+// }
 
 // void init_pos(vector<Vector3d> positions, vector<Particle> &particles) {
 //     for (unsigned int i = 0; i < particles.size(); i++)
