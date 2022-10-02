@@ -47,8 +47,6 @@ using namespace glm;
 
 using Eigen::Matrix3d;
 using Eigen::Vector3d;
-using Eigen::MatrixXd;
-using Eigen::VectorXd;
 using Eigen::EigenSolver;
 
 GLFWwindow* window;
@@ -181,28 +179,8 @@ void init() {
     glPointSize(10.0f);
 }
 
-float get_energy(vector<Spring> springs, vector<Vector3d> positions) {
-    float energy = 0, len, t;
-    int i1, i2;
-    Vector3d F;
-    for (unsigned int i = 0; i < springs.size(); i++) {
-        i1 = springs[i].getFirst();
-        i2 = springs[i].getSecond();
-        cout << positions[i1] << endl;
-        cout << positions[i2] << endl;
-        
-        len = springs[i].getLength();
-        F = compute_F(positions[i1], positions[i2], len);
-		t = compute_trace(F); 
-        cout << F << endl;
-        cout << t << endl;
-        energy += compute_energy(t);
-    }
-    return energy;
-}
-
 void update() {
-    Vector3d v1, v2, v3;
+    Vector3d v1, v2, v3; // for dampening
     Particle *p1, *p2;
     Vector3d forceOverLength;
     Vector3d force;
@@ -212,80 +190,127 @@ void update() {
     float hookesValue;
     Vector3d dampeningForce;
 
-	float alpha, energy, E_prev, t, len, lenp = 1e7;
-    vector<Vector3d> positionsp, positions;
-    int cnt = 0, n = particles.size();
-    VectorXd grad;
-    MatrixXd hessian;
+	float alpha, energy, t, len, lenp;
+	Vector3d x1, x2, xp1, xp2, F, P, p;
+    Matrix3d H;
+    int cnt;
 
     Eigen::ConjugateGradient<Eigen::MatrixXd, Eigen::Lower|Eigen::Upper> cg;
 
-    // init_pos(positionsp, particles);
-    for (unsigned int i = 0; i < particles.size(); i++) {
-        positionsp.push_back(particles[i].getPosition());
-        positions.push_back(particles[i].getPosition());
-    }
+    for(unsigned int i = 0; i < springs.size(); i++) {
+        p1 = &particles[springs[i].getFirst()];
+	    p2 = &particles[springs[i].getSecond()];
+
+        len = springs[i].getLength();
+		xp1 = p1->getPosition();
+		xp2 = p2->getPosition();
+        F = compute_F(xp1, xp2, len);
+		t = compute_trace(F); // = trace = F.length()
+		float E_prev = compute_energy(t);
+        cnt = 0;
+        lenp = 1e7;
+		while (1) {
+			// energy = E_prev; // to make it enter the inner while loop
+			compute_grad_hessian(P, H, t, F);
+            // cout << "P: " << to_string(P) << length(P) << ' ' << i << endl;
+            // cin.get();
+            // change the condition here to stop when P stops decreasing
+			if (P.norm() < eps) break;	
+            if (abs(lenp - P.norm()) < eps) cnt += 1;
+            if (cnt > 5) break;
+			// p = -inverse(H) * P;
+            cg.compute(H);
+            Vector3d p = -cg.solve(P);
+
+            // cout << "H: " << to_string(H) << endl;
+            // cin.get();
+            // cout << "p: " << to_string(p) << endl;
+            // cin.get();
+
+			alpha = 1;
+			do {
+                // this is wrong
+				x1 = xp1 + alpha * p;
+				x2 = xp2 - alpha * p;
+				alpha = alpha / 2;
+
+				F = compute_F(x1, x2, len); // TODO: this gives nan
+				t = compute_trace(F); // = trace = F.length()
+				energy = compute_energy(t);
+			} while (energy > E_prev);
+			xp1 = x1;
+			xp2 = x2;
+			E_prev = energy;
+            lenp = P.norm(); // previous PK1's norm
+		}
+        // to ensure a fixed point
+        if(!p1->isStationary()) p1->setPosition(x1);
+        if(!p2->isStationary()) p2->setPosition(x2);
         
-    while(1) {
-        get_global(springs, particles, hessian, grad, E_prev);
-        if (grad.norm() < eps) break;
-        // cout << hessian << endl;
-        // cout << grad << endl;
-        // cin.get();
-        if (abs(lenp - grad.norm()) < eps) cnt += 1;
-        if (cnt > 5) break;
-        cg.compute(hessian);
-        VectorXd p = -cg.solve(grad);
-        alpha = 1;
-        do {
-            update_pos(positionsp, positions, p, alpha);
-            alpha = alpha / 2;
-            energy = get_energy(springs, positions);
-        } while (energy > E_prev);
-        positionsp = positions;
-        E_prev = energy;
-        // cout << energy << endl;
-        lenp = grad.norm();
-    }
-    set_pos(positions, particles);
-    if(debug) {
-        // cout << "gravity = " << gravity << endl;
-        // cout << "v1 = ";
-        // p1->getVelocity().print();
-        // cout << "v2 = ";
-        // p2->getVelocity().print();
-        // cout << "hooke value = " << hookesValue << endl;
-        // cout << "dampening force = ";
-        // dampeningForce.print();
-        // cout << "springVector3d = ";
-        // springVector3d.print();
-        // cout << "Spring length = " << springLength << endl;
-        // cout << "force = ";
-        // force.print();
-        cout << "p1 = ";
-        cout << p1->getPosition() << endl;
-        cout << "p2 = ";
-        cout << p2->getPosition() << endl;
+        // P = (1 - 1 / t) * F;
+        // f = glm_2_vec(P / len);
+        // p1->setForce(f);
+        // p2->setForce(-f);
+        /*
+      p1 = &particles[springs[i].getFirst()];
+      p2 = &particles[springs[i].getSecond()];
+
+      springVector3d = p1->getPosition() - p2->getPosition();
+      springLength = springVector3d.length();
+      distanceFromRest = (springLength - springs[i].getLength());
+        
+        hookesValue = -springs[i].getConstant() * distanceFromRest;
+
+        // check for length of 0
+        // springVector3d.normalize();
+
+        // calculate force
+      force = ((springVector3d * hookesValue));
+
+      p1->setForce(p1->getForce() + force);
+      p2->setForce(p2->getForce() - force);
+    */
+        if(debug) {
+            // cout << "gravity = " << gravity << endl;
+            // cout << "v1 = ";
+            // p1->getVelocity().print();
+            // cout << "v2 = ";
+            // p2->getVelocity().print();
+            // cout << "hooke value = " << hookesValue << endl;
+            // cout << "dampening force = ";
+            // dampeningForce.print();
+            // cout << "springVector3d = ";
+            // springVector3d.print();
+            // cout << "Spring length = " << springLength << endl;
+            // cout << "force = ";
+            // force.print();
+            cout << "p1 = ";
+            cout << p1->getPosition() << endl;
+            cout << "p2 = ";
+            cout << p2->getPosition() << endl;
+        }
     }
 
-    // for(unsigned int i = 0; i < particles.size(); i++) {
-    //     if(!particles[i].isStationary()) {
-    //         if(gravity) {
-    //             particles[i].setForce(particles[i].getForce() + Vector3d(0.0f, -9.81f, 0.0f) * particles[i].getMass());
-    //         }
-    //     particles[i].setVelocity(particles[i].getVelocity() + (particles[i].getForce() / (particles[i].getMass() * timeStep)));
-    //     particles[i].setVelocity(particles[i].getVelocity() * damp);
-    //     particles[i].setPosition(particles[i].getPosition() + (particles[i].getVelocity() * timeStep));
-    //     particles[i].setForce(Vector3d(0.0f, 0.0f, 0.0f));
-    //     }
-    // }
+    for(unsigned int i = 0; i < particles.size(); i++) {
+        if(!particles[i].isStationary()) {
+            if(gravity) {
+                particles[i].setForce(particles[i].getForce() + Vector3d(0.0f, -9.81f, 0.0f) * particles[i].getMass());
+            }
+        particles[i].setVelocity(particles[i].getVelocity() + (particles[i].getForce() / (particles[i].getMass() * timeStep)));
+        particles[i].setVelocity(particles[i].getVelocity() * damp);
+        particles[i].setPosition(particles[i].getPosition() + (particles[i].getVelocity() * timeStep));
+        particles[i].setForce(Vector3d(0.0f, 0.0f, 0.0f));
+        }
+  }
+  // cout << "done" << endl;
 }
 
 void render() {
-    glViewport(0, 0, width, height);
-    glClear(GL_COLOR_BUFFER_BIT);
 
-    glMatrixMode(GL_PROJECTION);
+  glViewport(0, 0, width, height);
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     gluPerspective(fov, height/width, nearPlane, farPlane);
     //gluLookAt(camera[0], camera[1], camera[2], 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
