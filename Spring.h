@@ -17,10 +17,11 @@ private:
 	int i, j;
 	double k;
 	double l;
+	Vector3d dfdx;
 
 public:
 	Spring();
-	Spring(int, int, double, double); // i, j, k, length
+	Spring(int, int, double, double, std::vector<Particle>); // i, j, k, length, particle list
 
 	void render(std::vector<Particle>);
 
@@ -28,6 +29,7 @@ public:
 	int getSecond();
 	double getConstant();
 	double getLength();
+	Vector3d get_dfdx();
 
 	void setFirst(int);
 	void setSecond(int);

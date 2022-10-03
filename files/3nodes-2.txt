@@ -1,4 +1,4 @@
-Two mass skewed
+3 nodes & 2 edges
 g
 false
 p 3 0

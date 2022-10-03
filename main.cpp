@@ -1,25 +1,3 @@
-/*
- * main.cpp
- * 
- * Written by: Sean Brown
- * 
- * Particle:
- * x, y, z - Vector3ds of 3 (position
- * m - real number (mass)
- * 
- * Spring:
- * index i, j - integer (particles)
- * k - real number (spring constant)
- * l - real number (distance of rest state)
- * 
- * Force on particle p
- *     Fp = sum of forces connected to p
- * 
- * Force between particles
- *     Fp-pi = -spring.k(||p - pi|| - spring.l)(p - pi)/(||p - pi||)
- * 
- */
-
 #define _GLFW_X11
 #define _GLFW_GLX
 #define _GLFW_USE_OPENGL
@@ -109,7 +87,7 @@ void getSprings(int num) {
         file >> j;
         file >> k;
         file >> l;
-        springs.push_back(Spring(i, j, k, l));
+        springs.push_back(Spring(i, j, k, l, particles));
     }
 }
 
@@ -205,27 +183,18 @@ void update() {
 		xp1 = p1->getPosition();
 		xp2 = p2->getPosition();
         F = compute_F(xp1, xp2, len);
-		t = compute_trace(F); // = trace = F.length()
+		t = compute_trace(F); 
 		float E_prev = compute_energy(t);
         cnt = 0;
         lenp = 1e7;
 		while (1) {
-			// energy = E_prev; // to make it enter the inner while loop
 			compute_grad_hessian(P, H, t, F);
-            // cout << "P: " << to_string(P) << length(P) << ' ' << i << endl;
-            // cin.get();
             // change the condition here to stop when P stops decreasing
 			if (P.norm() < eps) break;	
             if (abs(lenp - P.norm()) < eps) cnt += 1;
             if (cnt > 5) break;
-			// p = -inverse(H) * P;
             cg.compute(H);
             Vector3d p = -cg.solve(P);
-
-            // cout << "H: " << to_string(H) << endl;
-            // cin.get();
-            // cout << "p: " << to_string(p) << endl;
-            // cin.get();
 
 			alpha = 1;
 			do {
@@ -234,8 +203,8 @@ void update() {
 				x2 = xp2 - alpha * p;
 				alpha = alpha / 2;
 
-				F = compute_F(x1, x2, len); // TODO: this gives nan
-				t = compute_trace(F); // = trace = F.length()
+				F = compute_F(x1, x2, len); 
+				t = compute_trace(F); 
 				energy = compute_energy(t);
 			} while (energy > E_prev);
 			xp1 = x1;
@@ -247,43 +216,7 @@ void update() {
         if(!p1->isStationary()) p1->setPosition(x1);
         if(!p2->isStationary()) p2->setPosition(x2);
         
-        // P = (1 - 1 / t) * F;
-        // f = glm_2_vec(P / len);
-        // p1->setForce(f);
-        // p2->setForce(-f);
-        /*
-      p1 = &particles[springs[i].getFirst()];
-      p2 = &particles[springs[i].getSecond()];
-
-      springVector3d = p1->getPosition() - p2->getPosition();
-      springLength = springVector3d.length();
-      distanceFromRest = (springLength - springs[i].getLength());
-        
-        hookesValue = -springs[i].getConstant() * distanceFromRest;
-
-        // check for length of 0
-        // springVector3d.normalize();
-
-        // calculate force
-      force = ((springVector3d * hookesValue));
-
-      p1->setForce(p1->getForce() + force);
-      p2->setForce(p2->getForce() - force);
-    */
         if(debug) {
-            // cout << "gravity = " << gravity << endl;
-            // cout << "v1 = ";
-            // p1->getVelocity().print();
-            // cout << "v2 = ";
-            // p2->getVelocity().print();
-            // cout << "hooke value = " << hookesValue << endl;
-            // cout << "dampening force = ";
-            // dampeningForce.print();
-            // cout << "springVector3d = ";
-            // springVector3d.print();
-            // cout << "Spring length = " << springLength << endl;
-            // cout << "force = ";
-            // force.print();
             cout << "p1 = ";
             cout << p1->getPosition() << endl;
             cout << "p2 = ";

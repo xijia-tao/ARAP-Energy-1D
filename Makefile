@@ -9,8 +9,8 @@ CXXFLAGS = -std=c++11 -Wall -Wextra -g
 LIBS = -lGL -lGLU -lglfw3 -lX11 -lXxf86vm -lXrandr -pthread -lXi -ldl
 LDFLAGS = -g
 
-main: main.cpp Particle.cpp Spring.cpp Vector.cpp arap.cpp
+main: main.cpp Particle.cpp Spring.cpp arap.cpp
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 run:
-	./main files/simplemass.txt
+	./main files/2nodes.txt

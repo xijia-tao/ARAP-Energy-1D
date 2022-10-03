@@ -1,4 +1,4 @@
-Simple mass spring
+2 nodes & 1 edge
 g
 false
 p 2 0

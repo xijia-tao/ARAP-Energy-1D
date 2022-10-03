@@ -20,11 +20,15 @@ Spring::Spring() {
 
 }
 
-Spring::Spring(int i, int j, double k, double l) {
+Spring::Spring(int i, int j, double k, double l, std::vector<Particle> particles) {
 	this->i = i;
 	this->j = j;
 	this->k = k;
 	this->l = l;
+
+	Vector3d pi = particles[i].getPosition();
+	Vector3d pj = particles[j].getPosition();
+	this->dfdx = (pi - pj) / l;
 }
 
 void Spring::render(std::vector<Particle> particles) {
@@ -56,7 +60,9 @@ double Spring::getConstant() {
 double Spring::getLength() {
 	return l;
 }
-
+Vector3d Spring::get_dfdx() {
+	return dfdx;
+}
 void Spring::setFirst(int i) {
 	this->i = i;
 }
